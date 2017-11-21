@@ -63,17 +63,23 @@ namespace SpawnDoorMainBlock
     {
         const string DUMMY_SUFFIX = "DoorBlade";
         const string DUMMY_SUFFIX2 = "_advanceddoor_";
-        private bool _init = false;
-        private bool closed = false;
-          bool? isWorking = null;
-        static bool debug = true;     
-        MyCubeGrid m_mycubegrid;
-        IMyCubeBlock m_block;
         const short MSG_CHANGEOWNERREQ = 101;
         const ushort MESSAGEID = 39001;
-        List<byte> msg = new List<byte>();
-        bool IsServer { get { return MyAPIGateway.Multiplayer.IsServer; } }
-       public static bool IsDedicatedServer { get { return MyAPIGateway.Multiplayer.IsServer && MyAPIGateway.Utilities.IsDedicated; } }
+
+        static bool debug = true;
+
+        private bool _init = false;
+        private bool closed = false;
+        private bool? isWorking = null;
+        private bool dontclosescript = true;
+        private MyCubeGrid m_mycubegrid;
+        private IMyCubeBlock m_block;
+        private List<byte> msg = new List<byte>();
+        private IMyAdvancedDoor spawnIMyAdvancedDoor;
+        
+
+        private  bool IsServer { get { return MyAPIGateway.Multiplayer.IsServer; } }
+        private  bool IsDedicatedServer { get { return MyAPIGateway.Multiplayer.IsServer && MyAPIGateway.Utilities.IsDedicated; } }
 
         /// <summary>
         /// инициализация блока
@@ -81,34 +87,44 @@ namespace SpawnDoorMainBlock
         /// <param name="objectBuilder"></param>
         public override void Init(MyObjectBuilder_EntityBase objectBuilder)
         {
-			NeedsUpdate |= MyEntityUpdateEnum.EACH_FRAME;
-            base.Init(objectBuilder);
-            ShowMessageInGameAndLog("dbg", "init!");
+            Logger.Instance.Init("debug");
+            
 
+            ShowMessageInGameAndLog("Init", "Init");
+
+            spawnIMyAdvancedDoor = Container.Entity as IMyAdvancedDoor;
+
+            ShowMessageInGameAndLog("Init", "tmpblock.CustomData" + spawnIMyAdvancedDoor.CustomData);
+            if (spawnIMyAdvancedDoor.CustomData != "secretword") NeedsUpdate |= MyEntityUpdateEnum.EACH_100TH_FRAME;
+            else NeedsUpdate |= MyEntityUpdateEnum.EACH_FRAME;
+            if (!IsDedicatedServer) NeedsUpdate |= MyEntityUpdateEnum.EACH_FRAME;
         }
 
-
-        public override void UpdateAfterSimulation()
+        public override void UpdateAfterSimulation100()
         {
             if (MyAPIGateway.Session == null)
                 return;
-            base.UpdateAfterSimulation();
-			
+            if (spawnIMyAdvancedDoor.CustomData != "secretword") return;
             if (!_init) MyInit();//all init
-            Logger.Instance.LogDebug("UpdateAfterSimulation()");
+        }
+        public override void UpdateAfterSimulation()
+        {    
+            if (MyAPIGateway.Session == null)
+                return;
+            if (spawnIMyAdvancedDoor.CustomData != "secretword") return;
+            if (!_init) MyInit();//all init
+           // ShowMessageInGameAndLog("UpdateAfterSimulation", "upd()");
             if (!IsServer) UpdateInput(); //on client pls
         }
-        /// <summary>        /// 
-        /// делаем грязь каждые 100 тиков
-        /// </summary>
+        
 
 
-        private void ReplaceOwner()
+        private void ReplaceOwner(long owner)
         {
             // ShowMessageInGameAndLog("CheckAndReplaceOwner", "m_mycubegrid.BigOwners " + m_mycubegrid.BigOwners.Count + " small" + m_mycubegrid.SmallOwners.Count);
 
-            m_mycubegrid.ChangeGridOwner(MyAPIGateway.Session.Player.IdentityId, MyOwnershipShareModeEnum.Faction);
-            m_mycubegrid.ChangeGridOwnership(MyAPIGateway.Session.Player.IdentityId, MyOwnershipShareModeEnum.Faction);
+            m_mycubegrid.ChangeGridOwner(owner, MyOwnershipShareModeEnum.Faction);
+            m_mycubegrid.ChangeGridOwnership(owner, MyOwnershipShareModeEnum.Faction);
             ShowMessageInGameAndLog("ReplaceOwner", "Owner replased ");
         }
 
@@ -117,25 +133,39 @@ namespace SpawnDoorMainBlock
         /// </summary>
         private void MyInit()
         {
-            Logger.Instance.Init("debug.log");
-            Logger.Instance.LogDebug("<SpawnDoor> Logging started");
+            _init = true;
+            if (!IsDedicatedServer) NeedsUpdate = MyEntityUpdateEnum.EACH_FRAME;
+            Logger.Instance.LogDebug("<SpawnDoor> Logging started in MyInit on server?:" + IsServer);
             closed = false;
-            ShowMessageInGameAndLog("MyInit", " MyInit start");
             m_block = (IMyAdvancedDoor)Entity;
+            m_mycubegrid = m_block.CubeGrid as MyCubeGrid;
+            List<IMySlimBlock> blocks = new List<IMySlimBlock>();
+            m_block.CubeGrid.GetBlocks(blocks);
+            bool flag = false;
+            foreach (var block in blocks)
+            {
+                if (IsProjectable(m_mycubegrid,block as IMyCubeBlock))
+                    flag = true;
+            }
+            if (flag) {
+                Logger.Instance.LogDebug("projectable: " + flag);
+                Destuctscript();
+                return; }
+
             m_block.NeedsWorldMatrix = true;
-         
+  
             (m_block as IMyTerminalBlock).CustomName = "Use me.";
                    (m_block as IMyTerminalBlock).ShowOnHUD = true;
 (m_block as IMyTerminalBlock).ShowOnHUD = true;
-            m_mycubegrid = m_block.CubeGrid as MyCubeGrid;
+            
 
             MyAPIGateway.Multiplayer.RegisterMessageHandler(MESSAGEID, Message);
-            _init = true;
-            ShowMessageInGameAndLog("dbg", "init end!");
+            
+            ShowMessageInGameAndLog("MyInit", "end!");
 
         }
 
-        void SendMessage_UpdatePlayerInventory(long playerId, bool add, string shipname)
+        void SendMessage_ReplaceDoor(long playerId, bool add, string shipname)
         {
             msg.Clear();
             msg.AddRange(BitConverter.GetBytes(MSG_CHANGEOWNERREQ)); //2b
@@ -150,7 +180,7 @@ namespace SpawnDoorMainBlock
         {
             if (!MyAPIGateway.Session.IsServer)
                 return;
-
+          
             short messageType = BitConverter.ToInt16(obj, 0);
             long entityId = BitConverter.ToInt64(obj, 2);
 
@@ -159,12 +189,24 @@ namespace SpawnDoorMainBlock
 
             if (messageType == MSG_CHANGEOWNERREQ)
             {
-              
-                long playerId = BitConverter.ToInt64(obj, 10);
-                bool add = BitConverter.ToBoolean(obj, 18);
-                string shipname = Encoding.ASCII.GetString(obj, 19, obj.Length - 19);
 
-                ReplaceOwner();
+                try
+                {
+                    long playerId = BitConverter.ToInt64(obj, 10);
+                    ShowMessageInGameAndLog("Message", "got message from " + playerId.ToString());
+                    bool add = BitConverter.ToBoolean(obj, 18);
+                    string shipname = Encoding.ASCII.GetString(obj, 19, obj.Length - 19);
+                    if (m_block.CubeGrid.CustomName == shipname) ReplaceOwner(playerId);
+                    ShowMessageInGameAndLog("Message", "start");
+                    spawnIMyAdvancedDoor.OpenDoor();
+                    spawnIMyAdvancedDoor.CustomData = "";
+                    var pos = m_block.Position;
+                    ShowMessageInGameAndLog("Message", "start2");
+                    NeedsUpdate = MyEntityUpdateEnum.NONE;
+                    Destuctscript();
+                    
+                }
+                catch (Exception tmp) { ShowMessageInGameAndLog("Message", "EXEPTION! "+ tmp?.ToString()); }
             }
         }
         private void UpdateInput()
@@ -201,7 +243,7 @@ namespace SpawnDoorMainBlock
 
             string detectorName = dummy.Name;
        
-            // ... only if the detector is not a weaponrack, in this case make Terminal available again and return;
+            // ... only if the detector is not a Spawndoor, in this case make Terminal available again and return;
             if (detectorName.Contains(DUMMY_SUFFIX) || detectorName.Contains(DUMMY_SUFFIX2))
             {
 
@@ -213,35 +255,48 @@ namespace SpawnDoorMainBlock
                 
                 if (isUsePressed)
                 {
-                    ShowMessageInGameAndLog("UpdateInput", "isUsePressed:[ " + isUsePressed.ToString() + "]" + "isUsePressed2:[" + isUsePressed2.ToString() + "]");
+                   try{ ShowMessageInGameAndLog("UpdateInput", "isUsePressed:[ " + isUsePressed.ToString() + "]" + "isUsePressed2:[" + isUsePressed2.ToString() + "]");
                     // slot already has a weapon -> remove it and add to players inventory
                     MyRelationsBetweenPlayerAndBlock blockrelationttoplayer = ((IMyCubeBlock)Entity).GetUserRelationToOwner(MyAPIGateway.Session.Player.IdentityId);
                     bool b = (blockrelationttoplayer == MyRelationsBetweenPlayerAndBlock.Enemies) || (blockrelationttoplayer == MyRelationsBetweenPlayerAndBlock.Neutral);
                     ShowMessageInGameAndLog("MyRelationsBetweenPlayerAndBlock", "NotFriendly = " + b);
-                    ReplaceOwner();
 
+                        if (b)
+                        {
+                            ShowMessageInGameAndLog("ReplaceOwner", "before!");
+                            ReplaceOwner(player.IdentityId);
+                            SendMessage_ReplaceDoor(player.IdentityId, true, m_block.CubeGrid.CustomName);
+                           //(m_block as IMyAdvancedDoor).OpenDoor();
+                            NeedsUpdate = MyEntityUpdateEnum.NONE;
+                            Destuctscript();
+                        }
+                        else(m_block as IMyAdvancedDoor).OpenDoor();         
+                    
                 }
+                catch (Exception tmp) { ShowMessageInGameAndLog("Message", "EXEPTION! " + tmp?.ToString()); }
+            }
             }
         }
         
 
         private void Destuctscript()
         {
+            NeedsUpdate = MyEntityUpdateEnum.NONE;
+            ShowMessageInGameAndLog("Destuctscript", "start");
             Logger.Instance.Close();
             MyAPIGateway.Multiplayer.UnregisterMessageHandler(MESSAGEID, Message);
-            ShowMessageInGameAndLog("dbg", "Block Close()");
-            if (m_mycubegrid != null)
-            {
-                m_block = null;
-                m_mycubegrid = null;
-                closed = true;
-            }
-
-
+           
+            if (m_mycubegrid != null)           
+                               m_mycubegrid = null;
+            if (m_block != null) m_block = null;
+            
+            dontclosescript = true;
+            closed = true;
+         
         }
         public override void Close()
         {
-            Destuctscript();
+           if(!dontclosescript)Destuctscript();
             base.Close();
             
 
@@ -264,9 +319,9 @@ namespace SpawnDoorMainBlock
             return false;
         }
 
-        public bool IsProjectable(IMyCubeBlock Block, bool CheckPlacement = true)
+        public bool IsProjectable(MyCubeGrid Grid,IMyCubeBlock Block, bool CheckPlacement = true)
         {
-            MyCubeGrid Grid = Block.CubeGrid as MyCubeGrid;
+            
             if (!CheckPlacement) return Grid.Projector != null;
             return Grid.Projector != null && (Grid.Projector as IMyProjector).CanBuild((IMySlimBlock)Block, true) == BuildCheckResult.OK;
         }
@@ -276,7 +331,7 @@ namespace SpawnDoorMainBlock
             if (debug)
             {
                 MyAPIGateway.Utilities.ShowMessage(ot, msg);
-                Log.writeLine(ot + msg);
+                Logger.Instance.LogMessage(ot + msg);
             }
         }
         
