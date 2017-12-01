@@ -78,6 +78,7 @@ namespace SpawnDoorMainBlock
         private IMyAdvancedDoor spawnIMyAdvancedDoor;
         MyObjectBuilder_EntityBase m_objectBuilder = null;
         private static readonly List<IMyPlayer> _playerCache = new List<IMyPlayer>();
+        public List<SerializableDefinitionId> InvDefinitionIds = new List<SerializableDefinitionId>();
         private bool IsServer { get { return MyAPIGateway.Multiplayer.IsServer; } }
         private bool IsDedicatedServer { get { return MyAPIGateway.Multiplayer.IsServer && MyAPIGateway.Utilities.IsDedicated; } }
 
@@ -96,27 +97,24 @@ namespace SpawnDoorMainBlock
             m_objectBuilder = objectBuilder;
             spawnIMyAdvancedDoor = Container.Entity as IMyAdvancedDoor;
 
-            ShowMessageInGameAndLog("Init", "tmpblock.CustomData" + spawnIMyAdvancedDoor.CustomData);
+           // ShowMessageInGameAndLog("Init", "tmpblock.CustomData" + spawnIMyAdvancedDoor.CustomData);
 
-            if (!IsDedicatedServer) NeedsUpdate |= MyEntityUpdateEnum.EACH_100TH_FRAME;
+           NeedsUpdate |= MyEntityUpdateEnum.EACH_100TH_FRAME;
             if ((!IsDedicatedServer) && ((spawnIMyAdvancedDoor.CustomData == secretword))) NeedsUpdate = MyEntityUpdateEnum.EACH_FRAME;
 
-            if (IsDedicatedServer) MyAPIGateway.Multiplayer.RegisterMessageHandler(MESSAGEID, Message);
-            ShowMessageInGameAndLog("Init", "end. NeedsUpdate: " + NeedsUpdate);
+            
+           // ShowMessageInGameAndLog("Init", "end. NeedsUpdate: " + NeedsUpdate);
         }
 
         public override void UpdateAfterSimulation100()
         {
             if ((MyAPIGateway.Session == null) || (MyAPIGateway.Utilities == null))
                 return;
-            if (needdestuct) { Destuctscript(); return; }
-            ShowMessageInGameAndLog("UpdateAfterSimulation100", "1.");
+            //if (needdestuct) { Destuctscript(); return; }
+           // ShowMessageInGameAndLog("UpdateAfterSimulation100", "1.");
             if (spawnIMyAdvancedDoor?.CustomData != secretword) return;
-            ShowMessageInGameAndLog("UpdateAfterSimulation100", "2.");
-
-            if (Entity.Flags == EntityFlags.ShadowBoxLod || Entity.Flags == EntityFlags.Transparent) return;
-
-            ShowMessageInGameAndLog("UpdateAfterSimulation1000", "before phys.");
+           // ShowMessageInGameAndLog("UpdateAfterSimulation100", "2.");
+           // ShowMessageInGameAndLog("UpdateAfterSimulation1000", "before phys.");
             if (spawnIMyAdvancedDoor.CubeGrid.Physics == null) return;
             ShowMessageInGameAndLog("UpdateAfterSimulation100", "before Init.");
             if (!_init) MyInit();//all init
@@ -125,18 +123,18 @@ namespace SpawnDoorMainBlock
         {
             if ((MyAPIGateway.Session == null) || (MyAPIGateway.Utilities == null))
                 return;
-            if (needdestuct) { Destuctscript(); return; }
+            //if (needdestuct) { Destuctscript(); return; }
 
-            ShowMessageInGameAndLog("UpdateAfterSimulation", "1.");
+            //ShowMessageInGameAndLog("UpdateAfterSimulation", "1.");
             if (spawnIMyAdvancedDoor?.CustomData != secretword) return;
-            ShowMessageInGameAndLog("UpdateAfterSimulation", "2.");
+            //ShowMessageInGameAndLog("UpdateAfterSimulation", "2.");
 
 
             //if (Entity.Flags == EntityFlags.ShadowBoxLod || Entity.Flags == EntityFlags.Transparent) return;
 
-            ShowMessageInGameAndLog("UpdateAfterSimulation", "before phys.");
+            //ShowMessageInGameAndLog("UpdateAfterSimulation", "before phys.");
             if (spawnIMyAdvancedDoor.CubeGrid.Physics == null) return;
-            ShowMessageInGameAndLog("UpdateAfterSimulation", "before Init.");
+            //ShowMessageInGameAndLog("UpdateAfterSimulation", "before Init.");
             if (!_init) MyInit();//all init
                                  // ShowMessageInGameAndLog("UpdateAfterSimulation", "upd()");
             if (!IsServer) UpdateInput(); //on client pls
@@ -159,7 +157,7 @@ namespace SpawnDoorMainBlock
         private void MyInit()
         {
             ShowMessageInGameAndLog("MyInit", "start.");
-
+            if (IsDedicatedServer) MyAPIGateway.Multiplayer.RegisterMessageHandler(MESSAGEID, Message);
             if (!IsDedicatedServer) NeedsUpdate = MyEntityUpdateEnum.EACH_FRAME;
             closed = false;
             m_block = (IMyAdvancedDoor)Entity;
@@ -208,6 +206,7 @@ namespace SpawnDoorMainBlock
             msg.AddRange(Encoding.ASCII.GetBytes(shipname));
 
             MyAPIGateway.Multiplayer.SendMessageToServer(MESSAGEID, msg.ToArray(), true);
+            ShowMessageInGameAndLog("SendMessage_ReplaceDoor", "sended.");
         }
         private void Message(byte[] obj)
         {
@@ -244,46 +243,75 @@ namespace SpawnDoorMainBlock
                     IMyPlayer player = GetPlayerById(playerId);
                     List<IMySlimBlock> blocks = new List<IMySlimBlock>();
                     (m_mycubegrid as IMyCubeGrid).GetBlocks(blocks);
+                    if (blocks.Count < 54) return;
                     Vector3 forvarddirection = new Vector3(0f, 0f, 0f);
                     IMyCockpit FoundCockpit = null;
                     IMyShipMergeBlock FoundMerge = null;
                     IMyThrust FoundTrust = null;
+                    IMyShipMergeBlock FoundBaseMergeBlock = null;
+                    IMyProjector FoundBaseProjector = null;
+                    IMyCargoContainer FoundCargoCont = null;
 
-                    foreach (var blok in blocks)
+                    ShowMessageInGameAndLog("Message", " blocks.Count: " + blocks.Count);
+
+                    foreach (IMySlimBlock blok in blocks)
                     {
-                        if (blok is IMyShipMergeBlock)
+                        if (blok.FatBlock == null) continue;
+                        ShowMessageInGameAndLog("Message", " Block: " + blok.FatBlock.Name + "display nametext: " + blok.FatBlock.DisplayNameText );
+
+                        if (blok.FatBlock.DisplayNameText == "MyMergeBlock")
                         {
-                            var a = (IMyShipMergeBlock)blok;
-                            if (a.DisplayName == "MyMergeBlock")
-                            {
-                                FoundMerge = a;
-                                ShowMessageInGameAndLog("Message", " found mergeblock");
-                            }
+                         
+                         FoundMerge = (IMyShipMergeBlock)blok.FatBlock;
+                        ShowMessageInGameAndLog("Message", " found MyMergeBlock");
+                            continue;
+                            
                         }
 
 
-                        if (blok is IMyCockpit)
+                        if (blok.FatBlock.DisplayNameText == "MyCockpit")
                         {
-
-                            var b = (IMyCockpit)blok;
-                            if (b.DisplayName == "MyCockpit")
-                            {
-                                FoundCockpit = b;
-                            }
-                            // WorldMatrix.Forward
-
-                        }
-                        if (blok is IMyThrust)
-                        {
-                            var c = (IMyThrust)blok;
-                            if (c.DisplayName == "MyThrust")
-                            {
-                                FoundTrust = c;
-                            }
+                        FoundCockpit = (IMyCockpit)blok.FatBlock;
+                            ShowMessageInGameAndLog("Message", " found MyCockpit");
+                            continue;
                         }
 
+
+                        if (blok.FatBlock.DisplayNameText == "MyThrust")
+                        {
+                         FoundTrust =(IMyThrust)blok.FatBlock;
+                            ShowMessageInGameAndLog("Message", " found MyThrust");
+                            continue;
+                        }
+
+
+                        if (blok.FatBlock.DisplayNameText == "BaseMergeBlock")
+                        {
+                            FoundBaseMergeBlock = (IMyShipMergeBlock)blok.FatBlock;
+                            ShowMessageInGameAndLog("Message", " found BaseMergeBlock");
+                            continue;
+                        }
+
+
+
+
+                        if (blok.FatBlock.DisplayNameText == "BaseProjector")
+                        {
+                            FoundBaseProjector = (IMyProjector)blok.FatBlock;
+                            ShowMessageInGameAndLog("Message", " found BaseProjector");
+                            continue;
+                        }
+
+                        if (blok.FatBlock.DisplayNameText == "MyCargo")
+                        {
+                            FoundCargoCont = (IMyCargoContainer)blok.FatBlock;
+                            ShowMessageInGameAndLog("Message", " found MyCargo");
+                            continue;
+                        }
 
                     }
+
+                    ShowMessageInGameAndLog("Message", " fFoundCockpit" + (FoundCockpit != null) + (FoundMerge != null) + (FoundTrust != null )+ (m_block.CubeGrid.CustomName == shipname));
                     if (FoundCockpit != null && FoundMerge != null && FoundTrust != null && m_block.CubeGrid.CustomName == shipname)
                     {
                         (m_block as IMyAdvancedDoor).OpenDoor();
@@ -291,7 +319,7 @@ namespace SpawnDoorMainBlock
                         // (m_block as IMyAdvancedDoor).CustomName = "Use me.";
                         // (m_block as IMyAdvancedDoor).ShowOnHUD = true;
 
-                        forvarddirection = FoundTrust.WorldMatrix.Forward;
+                        forvarddirection = FoundTrust.WorldMatrix.Backward;
                         ShowMessageInGameAndLog("Message", " findedthrust vector");
                         FoundMerge.Enabled = false;
 
@@ -301,8 +329,25 @@ namespace SpawnDoorMainBlock
                         FoundCockpit.AttachPilot(player.Character);
                         ShowMessageInGameAndLog("Message", " attachpilot");
 
+                        
+                                                
+                        (FoundBaseMergeBlock as MyCubeBlock)?.ChangeOwner(144115188075855876, MyOwnershipShareModeEnum.None);
+                        (FoundBaseProjector as MyCubeBlock)?.ChangeOwner(144115188075855876, MyOwnershipShareModeEnum.None);
+
                         (m_mycubegrid as IMyEntity).Physics.LinearVelocity = forvarddirection * 300;
-                    }
+
+
+
+
+
+                        InvDefinitionIds.Add(new SerializableDefinitionId(typeof(MyObjectBuilder_Ore), "Ice"));
+
+                        SerializableDefinitionId Item_HY = new SerializableDefinitionId(typeof(MyObjectBuilder_Ore), "Ice");
+                        ShowMessageInGameAndLog("Message", " before add to conteiner");
+                        addtoContainer(FoundCargoCont, Item_HY, 1000);
+
+
+    }
                     ShowMessageInGameAndLog("Message", " end");
                     // NeedsUpdate = MyEntityUpdateEnum.NONE;
                     //ShowMessageInGameAndLog("Message", "end.");
@@ -313,6 +358,17 @@ namespace SpawnDoorMainBlock
                 }
             }
             catch { ShowMessageInGameAndLog("Message", "EXEPTION! "); }
+        }
+        private void addtoContainer(IMyCargoContainer FoundCargoCont, SerializableDefinitionId item,int  amount)
+        {
+            IMyInventory  inventory = ((Sandbox.ModAPI.Ingame.IMyTerminalBlock)FoundCargoCont).GetInventory(0) as IMyInventory;
+            if (!inventory.CanItemsBeAdded(amount,item))
+            {
+                return;
+            }
+            MyFixedPoint amount2 = (MyFixedPoint)Math.Min(amount,9999);
+            inventory.AddItems(amount2, (MyObjectBuilder_PhysicalObject)MyObjectBuilderSerializer.CreateNewObject(item));
+
         }
         private void UpdateInput()
         {
@@ -358,10 +414,15 @@ namespace SpawnDoorMainBlock
                     return;
 
 
-                if (isUsePressed)
+                if (isUsePressed && CheckReadynessClient())
                 {
                     try
                     {
+
+
+                       
+                        
+
                         ShowMessageInGameAndLog("UpdateInput", "isUsePressed:[ " + isUsePressed.ToString() + "]" + "isUsePressed2:[" + isUsePressed2.ToString() + "]");
                         // slot already has a weapon -> remove it and add to players inventory
                         MyRelationsBetweenPlayerAndBlock blockrelationttoplayer = ((IMyCubeBlock)Entity).GetUserRelationToOwner(MyAPIGateway.Session.Player.IdentityId);
@@ -372,6 +433,7 @@ namespace SpawnDoorMainBlock
                         {
                             // ShowMessageInGameAndLog("UpdateInput", " ReplaceOwner before!");
                             // ReplaceOwner(player.IdentityId);
+                            ShowMessageInGameAndLog("UpdateInput", "Try send msg to server ");
                             SendMessage_ReplaceDoor(MyAPIGateway.Session.Player.IdentityId, true, m_block.CubeGrid.CustomName);
                             //(m_block as IMyAdvancedDoor).OpenDoor();
                             NeedsUpdate = MyEntityUpdateEnum.NONE;
@@ -399,14 +461,14 @@ namespace SpawnDoorMainBlock
 
             needdestuct = false;
             closed = true;
-            Logger.Instance.Close();
+          
         }
         public override void Close()
         {
             ShowMessageInGameAndLog("Close", "start");
 
             Destuctscript();
-            Logger.Instance.Close();
+            if (!IsDedicatedServer)Logger.Instance.Close();
         }
 
         public bool IsWorking()
@@ -453,6 +515,54 @@ namespace SpawnDoorMainBlock
             MyAPIGateway.Players.GetPlayers(_playerCache);
             return _playerCache.FirstOrDefault(p => p.IdentityId == identityId);
         }
+        private bool CheckReadynessClient()
+        {                     
+            List<IMySlimBlock> blocks = new List<IMySlimBlock>();
+            (m_mycubegrid as IMyCubeGrid).GetBlocks(blocks);
 
+            if (blocks.Count < 54) return false; 
+
+            Vector3 forvarddirection = new Vector3(0f, 0f, 0f);
+            IMyCockpit FoundCockpit = null;
+            IMyShipMergeBlock FoundMerge = null;
+            IMyThrust FoundTrust = null;
+
+            ShowMessageInGameAndLog("Message", " blocks.Count: " + blocks.Count);
+
+            foreach (IMySlimBlock blok in blocks)
+            {
+                if (blok.FatBlock == null) continue;
+                ShowMessageInGameAndLog("Message", " Block: " + blok.FatBlock.Name + "display nametext: " + blok.FatBlock.DisplayNameText);
+
+                if (blok.FatBlock.DisplayNameText == "MyMergeBlock")
+                {
+
+                    FoundMerge = (IMyShipMergeBlock)blok.FatBlock;
+                    ShowMessageInGameAndLog("Message", " found MyMergeBlock");
+
+                }
+
+
+                if (blok.FatBlock.DisplayNameText == "MyCockpit")
+                {
+                    FoundCockpit = (IMyCockpit)blok.FatBlock;
+                    ShowMessageInGameAndLog("Message", " found MyCockpit");
+                }
+
+
+                if (blok.FatBlock.DisplayNameText == "MyThrust")
+                {
+                    FoundTrust = (IMyThrust)blok.FatBlock;
+                    ShowMessageInGameAndLog("Message", " found MyThrust");
+                }
+
+
+            }
+
+            ShowMessageInGameAndLog("Message", " fFoundCockpit" + (FoundCockpit != null) + (FoundMerge != null) + (FoundTrust != null));
+            if (FoundCockpit != null && FoundMerge != null && FoundTrust != null) return true;return false;
+
+
+        }
     }
 }

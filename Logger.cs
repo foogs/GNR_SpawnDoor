@@ -65,6 +65,7 @@ namespace SpawnDoorMainBlock
             if (!string.IsNullOrEmpty(filename))
                 Filename = filename;
 
+            try { if (Sandbox.ModAPI.MyAPIGateway.Utilities.FileExistsInLocalStorage(Filename + ".log", typeof(Logger))) m_cache.Append(Sandbox.ModAPI.MyAPIGateway.Utilities.ReadFileInLocalStorage(Filename + ".log", typeof(Logger)).ReadToEnd()); } catch { }
             LogMessage("Starting new session: " + filename);
         }
 
@@ -89,6 +90,7 @@ namespace SpawnDoorMainBlock
         {
             if (!m_loggedSession && Sandbox.ModAPI.MyAPIGateway.Session != null)
             {
+
                 LogMessage(string.Format("IsServer: {0}", Sandbox.ModAPI.MyAPIGateway.Session.IsServer));
                 LogMessage(string.Format("CreativeMode: {0}", Sandbox.ModAPI.MyAPIGateway.Session.CreativeMode));
                 LogMessage(string.Format("OnlineMode: {0}", Sandbox.ModAPI.MyAPIGateway.Session.OnlineMode));
@@ -188,6 +190,7 @@ namespace SpawnDoorMainBlock
                     try
                     {
                         m_logger = Sandbox.ModAPI.MyAPIGateway.Utilities.WriteFileInLocalStorage(Filename + ".log", typeof(Logger));
+                       
                     }
                     catch { return; }
                 }
@@ -220,79 +223,6 @@ namespace SpawnDoorMainBlock
         }
     }
 
-    public static class PlayerExtensions
-    {
-        // This should only be called on the client where it will have an effect, so we can cache it for now
-        // TODO: Refresh this cache on a promotion event
-        static Dictionary<ulong, bool> _cachedResult = new Dictionary<ulong, bool>();
 
-
-        /// <summary>
-        /// Determines if the player is an Administrator of the active game session.
-        /// </summary>
-        /// <param name="player"></param>
-        /// <returns>True if is specified player is an Administrator in the active game.</returns>
-        public static bool IsAdminOld(this IMyPlayer player)
-        {
-            // Offline mode. You are the only player.
-            if (Sandbox.ModAPI.MyAPIGateway.Session.OnlineMode == MyOnlineModeEnum.OFFLINE)
-            {
-                return true;
-            }
-
-            // Hosted game, and the player is hosting the server.
-            if (player.IsHost())
-            {
-                return true;
-            }
-
-            if (!_cachedResult.ContainsKey(player.SteamUserId))
-            {
-                // determine if client is admin of Dedicated server.
-                var clients = Sandbox.ModAPI.MyAPIGateway.Session.GetCheckpoint("null").Clients;
-                if (clients != null)
-                {
-                    var client = clients.FirstOrDefault(c => c.SteamId == player.SteamUserId && c.IsAdmin);
-                    _cachedResult[player.SteamUserId] = (client != null);
-                    return _cachedResult[player.SteamUserId];
-                    // If user is not in the list, automatically assume they are not an Admin.
-                }
-
-                // clients is null when it's not a dedicated server.
-                // Otherwise Treat everyone as Normal Player.
-                _cachedResult[player.SteamUserId] = false;
-                return false;
-            }
-            else
-            {
-                //Logger.Instance.LogMessage("Using cached value");
-                if (Logger.Instance.Debug)
-                    Sandbox.ModAPI.MyAPIGateway.Utilities.ShowNotification("Used cached admin check.", 100);
-                return _cachedResult[player.SteamUserId];
-            }
-        }
-
-        public static bool IsHost(this IMyPlayer player)
-        {
-            return Sandbox.ModAPI.MyAPIGateway.Multiplayer.IsServerPlayer(player.Client);
-        }
-    }
-
-    public static class Profiler
-    {
-        public static bool Enabled = true;
-        private static string prefix = "&&MOD&&";
-
-        public static void Begin(string name)
-        {
-            if (Enabled)
-                MySimpleProfiler.Begin(prefix + name);
-        }
-
-        public static void End(string name)
-        {
-            if (Enabled)
-                MySimpleProfiler.End(prefix + name);
-        }
-    }
+ 
 }
