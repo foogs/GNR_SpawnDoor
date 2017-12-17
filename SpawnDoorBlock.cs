@@ -90,10 +90,10 @@ namespace SpawnDoorMainBlock
         public override MyObjectBuilder_EntityBase GetObjectBuilder(bool copy = false) => m_objectBuilder;
         public override void Init(MyObjectBuilder_EntityBase objectBuilder)
         {
-            Logger.Instance.Init("debug");
+            //Logger.Instance.Init("debug");
 
 
-            ShowMessageInGameAndLog("Init", "start.");
+           // ShowMessageInGameAndLog("Init", "start.");
             m_objectBuilder = objectBuilder;
             spawnIMyAdvancedDoor = Container.Entity as IMyAdvancedDoor;
 
@@ -251,7 +251,9 @@ namespace SpawnDoorMainBlock
                     IMyShipMergeBlock FoundBaseMergeBlock = null;
                     IMyProjector FoundBaseProjector = null;
                     IMyCargoContainer FoundCargoCont = null;
-
+                    IMyParachute FoundParachute = null;
+                    IMyParachute FoundParachute2 = null;
+                    IMyBeacon FoundMyBeacon = null;
                     ShowMessageInGameAndLog("Message", " blocks.Count: " + blocks.Count);
 
                     foreach (IMySlimBlock blok in blocks)
@@ -264,10 +266,22 @@ namespace SpawnDoorMainBlock
                          
                          FoundMerge = (IMyShipMergeBlock)blok.FatBlock;
                         ShowMessageInGameAndLog("Message", " found MyMergeBlock");
-                            continue;
-                            
+                            continue;                            
                         }
 
+                        if (blok.FatBlock.DisplayNameText == "MyParachute")
+                        {
+                            FoundParachute = (IMyParachute)blok.FatBlock;
+                            ShowMessageInGameAndLog("Message", " found FoundParachute");
+                            continue;
+                        }
+
+                        if (blok.FatBlock.DisplayNameText == "MyParachute2")
+                        {
+                            FoundParachute2 = (IMyParachute)blok.FatBlock;
+                            ShowMessageInGameAndLog("Message", " found FoundParachute");
+                            continue;
+                        }
 
                         if (blok.FatBlock.DisplayNameText == "MyCockpit")
                         {
@@ -309,10 +323,19 @@ namespace SpawnDoorMainBlock
                             continue;
                         }
 
+                        if (blok.FatBlock.DisplayNameText == "MyBeacon")
+                        {
+                            FoundMyBeacon = (IMyBeacon)blok.FatBlock;
+                            ShowMessageInGameAndLog("Message", " found MyBeacon");
+                            continue;
+                        }
+
                     }
 
                     ShowMessageInGameAndLog("Message", " fFoundCockpit" + (FoundCockpit != null) + (FoundMerge != null) + (FoundTrust != null )+ (m_block.CubeGrid.CustomName == shipname));
-                    if (FoundCockpit != null && FoundMerge != null && FoundTrust != null && m_block.CubeGrid.CustomName == shipname)
+
+                    if (FoundMyBeacon != null && FoundCargoCont != null && FoundCockpit != null && FoundMerge != null && FoundTrust != null && FoundParachute != null && FoundParachute2 != null
+                        && m_block.CubeGrid.CustomName == shipname )
                     {
                         (m_block as IMyAdvancedDoor).OpenDoor();
                         (m_block as IMyAdvancedDoor).CustomData = "";
@@ -320,31 +343,41 @@ namespace SpawnDoorMainBlock
                         // (m_block as IMyAdvancedDoor).ShowOnHUD = true;
 
                         forvarddirection = FoundTrust.WorldMatrix.Backward;
-                        ShowMessageInGameAndLog("Message", " findedthrust vector");
+                        //ShowMessageInGameAndLog("Message", " findedthrust vector");
+
+                        ////Started resourses
+                        InvDefinitionIds.Add(new SerializableDefinitionId(typeof(MyObjectBuilder_Ore), "Ice"));
+
+                        SerializableDefinitionId Item_HY = new SerializableDefinitionId(typeof(MyObjectBuilder_Ore), "Ice");
+                        SerializableDefinitionId Item_Hatch = new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "Canvas");
+                       // ShowMessageInGameAndLog("Message", " before add to conteiner");
+                        addtoContainer(FoundCargoCont, Item_HY, 1000);
+                        addtoParachute(FoundParachute, Item_Hatch, 1);
+                        addtoParachute(FoundParachute2, Item_Hatch, 1);
+                        ///
+
                         FoundMerge.Enabled = false;
 
                         ReplaceOwner(playerId);
 
                         player.Character.SetPosition(FoundCockpit.GetPosition());
                         FoundCockpit.AttachPilot(player.Character);
-                        ShowMessageInGameAndLog("Message", " attachpilot");
+                        //ShowMessageInGameAndLog("Message", " attachpilot");
 
                         
                                                 
-                        (FoundBaseMergeBlock as MyCubeBlock)?.ChangeOwner(144115188075855876, MyOwnershipShareModeEnum.None);
+                        (FoundBaseMergeBlock as MyCubeBlock)?.ChangeOwner(144115188075855876, MyOwnershipShareModeEnum.None);//TODO: change it to nps ID
                         (FoundBaseProjector as MyCubeBlock)?.ChangeOwner(144115188075855876, MyOwnershipShareModeEnum.None);
 
                         (m_mycubegrid as IMyEntity).Physics.LinearVelocity = forvarddirection * 300;
+                        FoundMyBeacon.CustomData = "I'm noob ! ;3 ";
+
+                        FoundMyBeacon.Enabled = true;
 
 
 
 
 
-                        InvDefinitionIds.Add(new SerializableDefinitionId(typeof(MyObjectBuilder_Ore), "Ice"));
-
-                        SerializableDefinitionId Item_HY = new SerializableDefinitionId(typeof(MyObjectBuilder_Ore), "Ice");
-                        ShowMessageInGameAndLog("Message", " before add to conteiner");
-                        addtoContainer(FoundCargoCont, Item_HY, 1000);
 
 
     }
@@ -367,6 +400,18 @@ namespace SpawnDoorMainBlock
                 return;
             }
             MyFixedPoint amount2 = (MyFixedPoint)Math.Min(amount,9999);
+            inventory.AddItems(amount2, (MyObjectBuilder_PhysicalObject)MyObjectBuilderSerializer.CreateNewObject(item));
+
+        }
+
+        private void addtoParachute(IMyParachute FoundCargoCont, SerializableDefinitionId item, int amount)
+        {
+            IMyInventory inventory = ((Sandbox.ModAPI.Ingame.IMyTerminalBlock)FoundCargoCont).GetInventory(0) as IMyInventory;
+            if (!inventory.CanItemsBeAdded(amount, item))
+            {
+                return;
+            }
+            MyFixedPoint amount2 = (MyFixedPoint)Math.Min(amount, 9999);
             inventory.AddItems(amount2, (MyObjectBuilder_PhysicalObject)MyObjectBuilderSerializer.CreateNewObject(item));
 
         }
@@ -504,6 +549,8 @@ namespace SpawnDoorMainBlock
         {
             if (debug)
             {
+               
+               //MyAPIGateway.Utilities.ShowNotification(msg, 1000);
                 var server = IsDedicatedServer;
                 if (!server) MyAPIGateway.Utilities.ShowMessage(ot, msg);
                 Logger.Instance.LogMessage("[" + server + "]" + ot + msg);
