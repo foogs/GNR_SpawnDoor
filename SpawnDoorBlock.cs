@@ -58,7 +58,7 @@ devBranch
 
 namespace SpawnDoorMainBlock
 {
-    [MyEntityComponentDescriptor(typeof(MyObjectBuilder_AdvancedDoor), false, "IrisDoor1x1")]
+    [MyEntityComponentDescriptor(typeof(MyObjectBuilder_AdvancedDoor), false, "SpawnIrisDoor1x1")]
     public class ShipCore : MyGameLogicComponent
     {
         const string DUMMY_SUFFIX = "DoorBlade";
