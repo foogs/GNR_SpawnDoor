@@ -13,6 +13,7 @@ using Sandbox.Game.Definitions;
 using Sandbox.Game.EntityComponents;
 using VRage.Utils;
 using VRage.Game.ObjectBuilders.Definitions;
+using Sandbox.Common.ObjectBuilders.Definitions;
 using VRage.Library;
 using VRage;
 using Sandbox.Game.World;
@@ -67,7 +68,7 @@ namespace SpawnDoorMainBlock
         const ushort MESSAGEID = 39001;
         const string secretword = "·";
         static bool debug = false;
-
+        private bool busy;
         private bool _init = false;
         private bool closed = false;
         private bool? isWorking = null;
@@ -142,7 +143,7 @@ namespace SpawnDoorMainBlock
             closed = false;
             m_block = (IMyAdvancedDoor)Entity;
             m_mycubegrid = m_block.CubeGrid as MyCubeGrid;
-
+            busy = false;
 
             _init = true;
 
@@ -168,15 +169,32 @@ namespace SpawnDoorMainBlock
 
             (m_block as IMyTerminalBlock).CustomName = "Use me.";
             (m_block as IMyTerminalBlock).ShowOnHUD = true;
-
+            MyAPIGateway.Session.DamageSystem.RegisterBeforeDamageHandler(0, shieldDamageHandler);
 
 
 
             ShowMessageInGameAndLog("MyInit", "end.");
 
         }
+        void shieldDamageHandler(object target, ref MyDamageInformation info)
+        {
+            if (closed) return;
 
-        void SendMessage_ReplaceDoor(long playerId, bool add, string shipname)
+            IMySlimBlock slimBlock = target as IMySlimBlock;
+
+            if (slimBlock != null)
+            {
+                handleDamageOnBlock(slimBlock, ref info);
+            }
+
+        }
+        void handleDamageOnBlock(IMySlimBlock slimBlock, ref MyDamageInformation info)
+        {
+            info.Amount = 0;
+            info.IsDeformation = false;
+            
+        }
+            void SendMessage_ReplaceDoor(long playerId, bool add, string shipname)
         {
             msg.Clear();
             msg.AddRange(BitConverter.GetBytes(MSG_CHANGEOWNERREQ)); //2b
@@ -336,7 +354,11 @@ namespace SpawnDoorMainBlock
                         addtoContainer2(FoundCargoCont, this.CreateGunContent("AngleGrinderItem"), 1);
                         addtoContainer2(FoundCargoCont, this.CreateGunContent("HandDrillItem"), 1);
 
-                      
+                       //00 addtoContainer2(FoundCargoCont, this.CreateGunContent("HydrogenBottle"), 1);
+                     
+                       
+
+
                         addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Ore), "Ice"), 1000);
                         addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "SteelPlate"), 886);
                         addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "Construction"), 203);
@@ -351,28 +373,67 @@ namespace SpawnDoorMainBlock
                         addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "SmallTube"), 110);
                         addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "PowerCell"), 110);
 
+                        addtoContainer2(FoundCargoCont, new MyObjectBuilder_GasContainerObject { SubtypeName = "HydrogenBottle", GasLevel = 1 }, 1);
+
                         addtoParachute(FoundParachute, Item_Hatch, 1);
                         addtoParachute(FoundParachute2, Item_Hatch, 1);
                         //
 
-                        FoundMerge.Enabled = false;
+                       
 
                         ReplaceOwner(playerId);
 
-                        player.Character.SetPosition(FoundCockpit.GetPosition());
-                        FoundCockpit.AttachPilot(player.Character);
-                      
+                       
                         (FoundBaseMergeBlock as MyCubeBlock)?.ChangeOwner(144115188075855876, MyOwnershipShareModeEnum.None);//TODO: change it to nps ID
-                        (FoundBaseProjector as MyCubeBlock)?.ChangeOwner(144115188075855876, MyOwnershipShareModeEnum.None);
+                        (FoundBaseProjector as MyCubeBlock)?.ChangeOwner(144115188075855876, MyOwnershipShareModeEnum.None);// not working
 
-                        (m_mycubegrid as IMyEntity).Physics.LinearVelocity = forvarddirection * 200;
-                        FoundMyBeacon.CustomName = "I'm noob ! ;3 ";
+                        FoundBaseMergeBlock.CubeGrid.Physics.ClearSpeed();
+                        FoundMerge.CubeGrid.Physics.ClearSpeed();
+                        player.Character.Physics.ClearSpeed();
 
-                        FoundMyBeacon.Enabled = true;
+                        FoundMerge.Enabled = false;
+
+                        var timer = new Timer(1000);
+                        timer.AutoReset = false;
+                        timer.Elapsed += (a, b) => MyAPIGateway.Utilities.InvokeOnGameThread(() => {
+
+                           
+                            ShowMessageInGameAndLog("Message", " timer");
+                            player.Character.SetPosition(FoundCockpit.GetPosition());
+                            FoundCockpit.AttachPilot(player.Character);
+
+                            
+                           
+
+
+                            FoundMyBeacon.CustomName = "I'm noob ! ;3 ";
+
+                            FoundMyBeacon.Enabled = true;
+
+                       
+
+                            var timer2 = new Timer(1000);
+                            timer2.AutoReset = false;
+                            timer2.Elapsed += (a1, b1) => MyAPIGateway.Utilities.InvokeOnGameThread(() => {
+                                (m_mycubegrid as IMyEntity).Physics.LinearVelocity = forvarddirection * 200;
+                              
+                                ShowMessageInGameAndLog("Message", " timer");
+                                busy = false;
+                            });
+                            timer2.Start();
 
 
 
 
+
+
+                        });
+                        timer.Start();
+
+
+
+
+                        
 
 
 
@@ -407,6 +468,11 @@ namespace SpawnDoorMainBlock
         private MyObjectBuilder_PhysicalGunObject CreateGunContent(string subtypeName)
         {
             MyDefinitionId v = new MyDefinitionId(typeof(MyObjectBuilder_PhysicalGunObject), subtypeName);
+            return (MyObjectBuilder_PhysicalGunObject)MyObjectBuilderSerializer.CreateNewObject(v);
+        }
+        private MyObjectBuilder_PhysicalGunObject CreateBottleContent(string subtypeName)
+        {
+            MyDefinitionId v = new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), subtypeName);
             return (MyObjectBuilder_PhysicalGunObject)MyObjectBuilderSerializer.CreateNewObject(v);
         }
         private void addtoParachute(IMyParachute FoundCargoCont, SerializableDefinitionId item, int amount)
@@ -485,9 +551,15 @@ namespace SpawnDoorMainBlock
                             // ShowMessageInGameAndLog("UpdateInput", " ReplaceOwner before!");
                             // ReplaceOwner(player.IdentityId);
                             ShowMessageInGameAndLog("UpdateInput", "Try send msg to server ");
+
+
+                            m_block.CubeGrid.Physics.ClearSpeed();                    
+                            player.Character.Physics.ClearSpeed();                           
+
                             SendMessage_ReplaceDoor(MyAPIGateway.Session.Player.IdentityId, true, m_block.CubeGrid.CustomName);
                             //(m_block as IMyAdvancedDoor).OpenDoor();
                             NeedsUpdate = MyEntityUpdateEnum.NONE;
+                             
                             Destuctscript();
                         }
                         else (m_block as IMyAdvancedDoor).OpenDoor();
@@ -516,6 +588,7 @@ namespace SpawnDoorMainBlock
         }
         public override void Close()
         {
+          
             ShowMessageInGameAndLog("Close", "start");
 
             Destuctscript();
