@@ -67,7 +67,7 @@ namespace SpawnDoorMainBlock
         const short MSG_CHANGEOWNERREQ = 101;
         const ushort MESSAGEID = 39001;
         const string secretword = "·";
-        static bool debug = false;
+        static bool debug = true;
         private bool busy;
         private bool _init = false;
         private bool closed = false;
@@ -104,6 +104,7 @@ namespace SpawnDoorMainBlock
             if (spawnIMyAdvancedDoor.CubeGrid.Physics == null) return;
            // ShowMessageInGameAndLog("UpdateAfterSimulation100", "before Init.");
             if (!_init) MyInit();//all init
+            
         }
         public override void UpdateAfterSimulation()
         {
@@ -169,8 +170,8 @@ namespace SpawnDoorMainBlock
 
             (m_block as IMyTerminalBlock).CustomName = "Use me.";
             (m_block as IMyTerminalBlock).ShowOnHUD = true;
-            MyAPIGateway.Session.DamageSystem.RegisterBeforeDamageHandler(0, shieldDamageHandler);
-
+            //MyAPIGateway.Session.DamageSystem.RegisterBeforeDamageHandler(0, shieldDamageHandler);
+            
 
 
             ShowMessageInGameAndLog("MyInit", "end.");
@@ -240,21 +241,29 @@ namespace SpawnDoorMainBlock
 
                     IMyPlayer player = GetPlayerById(playerId);
                     List<IMySlimBlock> blocks = new List<IMySlimBlock>();
+             
                     (m_mycubegrid as IMyCubeGrid).GetBlocks(blocks);
-                    if (blocks.Count < 54) return;
+              
+                    if (blocks.Count < 40) return;
                     Vector3 forvarddirection = new Vector3(0f, 0f, 0f);
                     IMyCockpit FoundCockpit = null;
-                    IMyShipMergeBlock FoundMerge = null;
-                    IMyThrust FoundTrust = null;
+                    IMyShipMergeBlock FoundMerge = null;                   
                     IMyShipMergeBlock FoundBaseMergeBlock = null;
                     IMyProjector FoundBaseProjector = null;
                     IMyCargoContainer FoundCargoCont = null;
+                    IMyCargoContainer FoundBaseCargoCont = null;
+                    IMyCargoContainer FoundBaseCargoCont2 = null;
                     IMyParachute FoundParachute = null;
                     IMyParachute FoundParachute2 = null;
-                    IMyBeacon FoundMyBeacon = null;
+                    IMyParachute FoundParachute3 = null;
+                    IMyParachute FoundParachute4 = null;
+                   
+                    
                     ShowMessageInGameAndLog("Message", " blocks.Count: " + blocks.Count);
 
-                    foreach (IMySlimBlock blok in blocks)
+                    
+
+                        foreach (IMySlimBlock blok in blocks)
                     {
                         if (blok.FatBlock == null) continue;
                         ShowMessageInGameAndLog("Message", " Block: " + blok.FatBlock.Name + "display nametext: " + blok.FatBlock.DisplayNameText);
@@ -280,6 +289,18 @@ namespace SpawnDoorMainBlock
                             ShowMessageInGameAndLog("Message", " found FoundParachute");
                             continue;
                         }
+                        if (blok.FatBlock.DisplayNameText == "MyParachute3")
+                        {
+                            FoundParachute3 = (IMyParachute)blok.FatBlock;
+                            ShowMessageInGameAndLog("Message", " found FoundParachute3");
+                            continue;
+                        }
+                        if (blok.FatBlock.DisplayNameText == "MyParachute4")
+                        {
+                            FoundParachute4 = (IMyParachute)blok.FatBlock;
+                            ShowMessageInGameAndLog("Message", " found FoundParachute4");
+                            continue;
+                        }
 
                         if (blok.FatBlock.DisplayNameText == "MyCockpit")
                         {
@@ -289,12 +310,7 @@ namespace SpawnDoorMainBlock
                         }
 
 
-                        if (blok.FatBlock.DisplayNameText == "MyThrust")
-                        {
-                            FoundTrust = (IMyThrust)blok.FatBlock;
-                            ShowMessageInGameAndLog("Message", " found MyThrust");
-                            continue;
-                        }
+                   
 
 
                         if (blok.FatBlock.DisplayNameText == "BaseMergeBlock")
@@ -321,30 +337,86 @@ namespace SpawnDoorMainBlock
                             continue;
                         }
 
-                        if (blok.FatBlock.DisplayNameText == "MyBeacon")
-                        {
-                            FoundMyBeacon = (IMyBeacon)blok.FatBlock;
-                            ShowMessageInGameAndLog("Message", " found MyBeacon");
-                            continue;
-                        }
+                  
+
+                        
+
+
 
                     }
+              
 
-                    ShowMessageInGameAndLog("Message", " fFoundCockpit" + (FoundCockpit != null) + (FoundMerge != null) + (FoundTrust != null) + (m_block.CubeGrid.CustomName == shipname));
 
-                    if (FoundMyBeacon != null && FoundCargoCont != null && FoundCockpit != null && FoundMerge != null && FoundTrust != null && FoundParachute != null && FoundParachute2 != null
-                        && m_block.CubeGrid.CustomName == shipname)
+
+                    ShowMessageInGameAndLog("Message", " fFoundCockpit" + (FoundCockpit != null) + (FoundMerge != null) + (FoundCargoCont != null) + (m_block.CubeGrid.CustomName == shipname));
+
+                    if (FoundCargoCont != null && FoundCockpit != null && FoundMerge != null 
+                        && FoundParachute != null && FoundParachute2 != null && FoundParachute3 != null && FoundParachute4 != null
+                        && m_block.CubeGrid.CustomName == shipname )
                     {
                         (m_block as IMyAdvancedDoor).OpenDoor();
                         (m_block as IMyAdvancedDoor).CustomData = "";
                         // (m_block as IMyAdvancedDoor).CustomName = "Use me.";
                         // (m_block as IMyAdvancedDoor).ShowOnHUD = true;
 
-                        forvarddirection = FoundTrust.WorldMatrix.Backward;
+                        forvarddirection = FoundMerge.WorldMatrix.Backward;
                         //ShowMessageInGameAndLog("Message", " findedthrust vector");
 
-                        ////Started resourses
+                        List<IMySlimBlock> blocks2 = new List<IMySlimBlock>();
+                        BoundingSphereD boundingSphere = new BoundingSphereD(FoundMerge.GetPosition(), 300);
+                        var entity = MyAPIGateway.Entities.GetEntitiesInSphere(ref boundingSphere);
+
+                        foreach (IMyEntity ent in entity)
+                        {
+
+                            if (ent.DisplayName != "GNR_Spawn") continue;
+
+                            (ent as IMyCubeGrid).GetBlocks(blocks2);
+                            foreach (IMySlimBlock blok in blocks2)
+                            {
+                                if (blok.FatBlock == null) continue;
+                                if (blok.FatBlock as IMyCargoContainer == null) continue;
+
+                                if (blok.FatBlock.DisplayNameText == "BaseCargo")
+                                {
+                                    FoundBaseCargoCont = (IMyCargoContainer)blok.FatBlock;
+                                    ShowMessageInGameAndLog("Message", " found BaseCargo");
+                                    continue;
+                                }
+                                if (blok.FatBlock.DisplayNameText == "BaseCargo2")
+                                {
+                                    FoundBaseCargoCont2 = (IMyCargoContainer)blok.FatBlock;
+                                    ShowMessageInGameAndLog("Message", " found BaseCargo2");
+                                    continue;
+                                }
+                            }
+
+                        }
+
                         
+                        //res for welders start
+
+                        addtoContainer(FoundBaseCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "SteelPlate"), 752);
+                        addtoContainer(FoundBaseCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "Construction"), 286);
+                        addtoContainer(FoundBaseCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "InteriorPlate"), 113);
+                        addtoContainer(FoundBaseCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "MetalGrid"), 8);
+            
+                        addtoContainer(FoundBaseCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "Computer"), 144);
+                        addtoContainer(FoundBaseCargoCont2, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "LargeTube"), 6);
+                        addtoContainer(FoundBaseCargoCont2, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "Motor"), 31);
+                        addtoContainer(FoundBaseCargoCont2, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "Display"), 15);
+                   
+                        addtoContainer(FoundBaseCargoCont2, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "SmallTube"), 84);
+                        addtoContainer(FoundBaseCargoCont2, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "PowerCell"), 120);
+
+                        //res for welders end
+
+
+
+
+
+                        ////Started resourses
+
                         SerializableDefinitionId Item_Hatch = new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "Canvas");
                          ShowMessageInGameAndLog("Message", " before add to conteiner");
                         addtoContainer2(FoundCargoCont, new MyObjectBuilder_AmmoMagazine { SubtypeName = "NATO_5p56x45mm", ProjectilesCount = 50 }, 2);
@@ -360,65 +432,76 @@ namespace SpawnDoorMainBlock
 
 
                         addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Ore), "Ice"), 1000);
-                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "SteelPlate"), 886);
-                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "Construction"), 203);
-                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "InteriorPlate"), 225);
-                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "MetalGrid"), 90);
-                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "RadioCommunication"), 48);
-                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "Computer"), 12);
-                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "LargeTube"), 39);
-                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "Motor"), 60);
-                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "Display"), 12);
-                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "Medical"), 18);
-                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "SmallTube"), 110);
-                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "PowerCell"), 110);
+                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "SteelPlate"), 1339);
+                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "Construction"), 150);
+                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "InteriorPlate"), 240);
+                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "MetalGrid"), 73);
+                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "RadioCommunication"), 2);
+                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "Computer"), 25);
+                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "LargeTube"), 35);
+                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "Motor"), 28);
+                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "Display"), 15);
+                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "Medical"), 15);
+                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "SmallTube"), 100);
+                        addtoContainer(FoundCargoCont, new SerializableDefinitionId(typeof(MyObjectBuilder_Component), "PowerCell"), 150);
 
                         addtoContainer2(FoundCargoCont, new MyObjectBuilder_GasContainerObject { SubtypeName = "HydrogenBottle", GasLevel = 1 }, 1);
+                        addtoContainer2(FoundCargoCont, new MyObjectBuilder_GasContainerObject { SubtypeName = "HydrogenBottle", GasLevel = 1 }, 1);
 
+
+                        for(int g = 0; g <= 10; g++) { 
                         addtoParachute(FoundParachute, Item_Hatch, 1);
                         addtoParachute(FoundParachute2, Item_Hatch, 1);
+                        addtoParachute(FoundParachute3, Item_Hatch, 1);
+                        addtoParachute(FoundParachute4, Item_Hatch, 1);}
+                        
                         //
 
-                       
 
+                       //FoundBaseMergeBlock.CubeGrid.Physics.Deactivate();
                         ReplaceOwner(playerId);
 
                        
                         (FoundBaseMergeBlock as MyCubeBlock)?.ChangeOwner(144115188075855876, MyOwnershipShareModeEnum.None);//TODO: change it to nps ID
                         (FoundBaseProjector as MyCubeBlock)?.ChangeOwner(144115188075855876, MyOwnershipShareModeEnum.None);// not working
 
-                        FoundBaseMergeBlock.CubeGrid.Physics.ClearSpeed();
-                        FoundMerge.CubeGrid.Physics.ClearSpeed();
-                        player.Character.Physics.ClearSpeed();
 
-                        FoundMerge.Enabled = false;
 
+
+                        player.Character.SetPosition(FoundCockpit.GetPosition());
+                        FoundCockpit.AttachPilot(player.Character);
+
+
+                        ShowMessageInGameAndLog("Message", " before impulse");
+                        (m_mycubegrid as IMyEntity).Physics.LinearVelocity = forvarddirection * 25;
                         var timer = new Timer(1000);
                         timer.AutoReset = false;
                         timer.Elapsed += (a, b) => MyAPIGateway.Utilities.InvokeOnGameThread(() => {
 
                            
                             ShowMessageInGameAndLog("Message", " timer");
-                            player.Character.SetPosition(FoundCockpit.GetPosition());
-                            FoundCockpit.AttachPilot(player.Character);
 
-                            
-                           
+                          
+                            FoundMerge.Enabled = false;
+                            FoundMerge.Physics.Deactivate();
 
 
-                            FoundMyBeacon.CustomName = "I'm noob ! ;3 ";
 
-                            FoundMyBeacon.Enabled = true;
 
-                       
 
-                            var timer2 = new Timer(1000);
+
+                             var timer2 = new Timer(5000);
                             timer2.AutoReset = false;
                             timer2.Elapsed += (a1, b1) => MyAPIGateway.Utilities.InvokeOnGameThread(() => {
-                                (m_mycubegrid as IMyEntity).Physics.LinearVelocity = forvarddirection * 200;
+
+                                // (m_mycubegrid as IMyEntity).Physics.Activate();
+                                FoundMerge.Physics.Activate();
+                                (m_mycubegrid as IMyEntity).Physics.LinearVelocity = (m_mycubegrid as IMyEntity).Physics.LinearVelocity  + (forvarddirection * 200);
                               
-                                ShowMessageInGameAndLog("Message", " timer");
+                                ShowMessageInGameAndLog("Message", " timer2");
                                 busy = false;
+                                
+                                Destuctscript();
                             });
                             timer2.Start();
 
@@ -449,6 +532,10 @@ namespace SpawnDoorMainBlock
             }
             catch { ShowMessageInGameAndLog("Message", "EXEPTION! "); }
         }
+        public static void sendrefreshmsgtoserver()
+        {
+            MyAPIGateway.Utilities.SendMessage("!entities refresh");
+        }
         private void addtoContainer(IMyCargoContainer FoundCargoCont, SerializableDefinitionId item, int amount)
         {
             IMyInventory inventory = ((Sandbox.ModAPI.Ingame.IMyTerminalBlock)FoundCargoCont).GetInventory(0) as IMyInventory;
@@ -458,6 +545,7 @@ namespace SpawnDoorMainBlock
             }
             MyFixedPoint amount2 = (MyFixedPoint)Math.Min(amount, 9999);
             inventory.AddItems(amount2, (MyObjectBuilder_PhysicalObject)MyObjectBuilderSerializer.CreateNewObject(item));
+           
 
         }
         private void addtoContainer2(IMyCargoContainer FoundCargoCont, MyObjectBuilder_PhysicalObject item, int amount)
@@ -551,16 +639,27 @@ namespace SpawnDoorMainBlock
                             // ShowMessageInGameAndLog("UpdateInput", " ReplaceOwner before!");
                             // ReplaceOwner(player.IdentityId);
                             ShowMessageInGameAndLog("UpdateInput", "Try send msg to server ");
-
-
-                            m_block.CubeGrid.Physics.ClearSpeed();                    
-                            player.Character.Physics.ClearSpeed();                           
+                                                                                                          
 
                             SendMessage_ReplaceDoor(MyAPIGateway.Session.Player.IdentityId, true, m_block.CubeGrid.CustomName);
+                          
                             //(m_block as IMyAdvancedDoor).OpenDoor();
                             NeedsUpdate = MyEntityUpdateEnum.NONE;
                              
                             Destuctscript();
+
+                            var timer3 = new Timer(10000);
+                            timer3.AutoReset = false;
+                            timer3.Elapsed += (a12, b12) => MyAPIGateway.Utilities.InvokeOnGameThread(() =>
+                            {
+
+
+                                sendrefreshmsgtoserver();
+                            });
+                            timer3.Start();
+
+
+                        
                         }
                         else (m_block as IMyAdvancedDoor).OpenDoor();
 
@@ -647,7 +746,7 @@ namespace SpawnDoorMainBlock
 
             (m_mycubegrid as IMyCubeGrid).GetBlocks(blocks);
 
-            if (blocks.Count < 54) return false;
+            if (blocks.Count < 40) return false;
 
 
             ShowMessageInGameAndLog("Message", " blocks.Count: " + blocks.Count);
